@@ -35,9 +35,6 @@ var svg = canvas.append("g").attr({
         transform: "translate(" + 0 + "," + 0 + ")"
 });
 
-var detailSVG = detailVis.append("g").attr({
-    transform: "translate(" + 0 + "," + 0 + ")"
-});
 
 var projection = d3.geo.albersUsa().translate([width / 2, height / 2]);//.precision(.1);
 var path = d3.geo.path().projection(projection);
@@ -90,16 +87,18 @@ function loadStations(completeData) {
 
         // we must create scale for the total sums
         var total_sums = {};
-
-        // this gets each station_id
+        // this gets each month
         for (var key in completeData) {
             
-            if (!(key in total_sums)) {
-                total_sums[key] = 0;
-            }
+            // this gets each station id
+            for (var station in completeData[key]) {
 
-            total_sums[key] += completeData[key]["sum"];
-            
+                if (!(station in total_sums)) {
+                    total_sums[station] = 0;
+                }
+
+                total_sums[station] += completeData[key][station]["sum"];
+            }
         }
 
         var max_sum = 0;
@@ -112,52 +111,56 @@ function loadStations(completeData) {
                 min_sum = total_sums[station_id];
             }
         }
-
         // create scale for radius
-        var radius_scale = d3.scale.linear().domain([min_sum, max_sum]).range([2, 3.5]);
+        var radius_scale = d3.scale.linear().domain([min_sum, max_sum]).range([1.5, 3.5]);
 
         filtered_data.forEach (function (d, i) {
 
             var station_id = d["USAF"];
-            var station_name = d["STATION"];
 
-            // grab the total sum
-            var sum = total_sums[station_id];
+            // calculate the total sum
+            var total_sum = 0;
 
-            var c = svg.append("circle")
-            .attr("class", function (d, i) {
-                if (sum) {
-                    return "station hasData";
-                }
-                else {
-                    return "station";
-                }
-            })
-            .attr("cx", projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]])[0])
-            .attr("cy", projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]])[1])
-            .attr("r", function (d, i) {
-                if (!sum) {
-                    return radius_scale(0);
-                } else {
-                    return radius_scale(sum);
-                }
-            })
-            .on("mouseover", function (d, i) {
+            for (var key in completeData) {
 
-                // if it has a data, then display the data, else just display the name
-                if (sum) {
-                    tooltip.html("<b>" + station_name + " (" + station_id + ")</b><br>Value: " + sum);
+                if (completeData[key][station_id]) {
+                    total_sum += completeData[key][station_id]["sum"];
                 }
-                else {
-                    tooltip.html("<b>" + station_name + " (" + station_id + ")</b>");
-                }
-                return tooltip.style("visibility", "visible");
+            }
 
-            })
-	        .on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
-	        .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
-            .on("click", updateDetailVis(d, station_name));
+            //var c = svg.append("circle")
+            //.attr("class", "station-circle")
+            //.attr("cx", projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]])[0])
+            //.attr("cy", projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]])[1])
+            //.attr("r", radius_scale(total_sum))
+            //.attr("fill", function (d, i) {
+
+            //    if (total_sum > 0) {
+            //        return "#34DDDD";
+            //    }
+            //    else {
+            //        return "gray";
+            //    }
+            //})
+            //.on("mouseover", function (d, i) {
+            //    console.log(d);
+            //    console.log(i);
+            //    return tooltip.style("visibility", "visible");
+
+            //})
+	        //.on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
+	        //.on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); });
+
+            //c.data(d);
         });
+
+        svg.selectAll("circle")
+        .data(completeData)
+        .enter()
+        .append("circle")
+        .attr("cy", 90)
+        .attr("cx", String)
+        .attr("r", Math.sqrt);
         
     });
 }
@@ -183,7 +186,7 @@ d3.json("../data/us-named.json", function(error, data) {
         .data(usMap)
         .enter()
         .append("path")
-        .attr("class", "country")
+        .attr("class", "map")
         .attr("d", path)
         .on("click", clicked);
 
@@ -203,29 +206,13 @@ var tooltip = d3.select("body")
 
 
 // ALL THESE FUNCTIONS are just a RECOMMENDATION !!!!
-var createDetailVis = function () {
+var createDetailVis = function(){
 
 }
 
 
 var updateDetailVis = function(data, name){
   
-    console.log(data);
-    console.log(name);
-
-    // calculate min and max years for the scales and axis
-    //var min_year = d3.min(data, function (d) { return d.date; });
-    //var max_year = d3.max(data, function (d) { return d.date; });
-
-    //// store the detail axis/scales
-    //var xAxis, xScale, yAxis, yScale;
-
-    //// define the scale and axis for x
-    //xScale = d3.time.scale().domain(d3.extent(data, function (d) { return d.date; })).range([0, bbVis]);
-    //xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(10);
-
-    
-
 }
 
 
@@ -239,4 +226,5 @@ function zoomToBB() {
 function resetZoom() {
     
 }
+
 

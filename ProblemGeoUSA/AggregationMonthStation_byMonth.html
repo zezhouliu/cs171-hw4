@@ -41,29 +41,39 @@
                     var month = date.getMonth();
                     var hour = date.getHours();
 
+                    // if it doesn't exist yet, push the month in
+                    if (!(month in allDates)) {
+                        allDates[month] = {};
+                    }
+
                     // if the station id doesn't exist yet, we want to push it in
-                    if (!(key in allDates)) {
-                        allDates[key] = {};
+                    if (!(key in allDates[month])) {
+                        allDates[month][key] = {};
                     }
 
                     // push in the hourly dictionary if it doesn't exist yet
-                    if (!("hourly" in allDates[key_string])) {
-                        allDates[key_string]["hourly"] = {};
+                    if (!("hourly" in allDates[month][key_string])) {
+                        allDates[month][key_string]["hourly"] = {};
                     }
 
                     // if there is no sum value, then push it in
-                    if (!("sum" in allDates[key_string])) {
-                        allDates[key_string]["sum"] = 0;
+                    if (!("sum" in allDates[month][key_string])) {
+                        allDates[month][key_string]["sum"] = 0;
+                    }
+
+                    // if there is no absolute sum, then calculate it
+                    if (!("total_sum" in allDates[month][key_string])) {
+                        allDates[month][key_string]["total_sum"] = 0;
                     }
 
                     // if there is no hour value, then push it in
-                    if (!(hour in allDates[key_string]["hourly"])) {
-                        allDates[key_string]["hourly"][hour] = 0;
+                    if (!(hour in allDates[month][key_string]["hourly"])) {
+                        allDates[month][key_string]["hourly"][hour] = 0;
                     }
 
                     // we need to add the value to both the sum and the hourly
-                    allDates[key_string]["hourly"][hour] += d.value;
-                    allDates[key_string]["sum"] += d.value;
+                    allDates[month][key_string]["hourly"][hour] += d.value;
+                    allDates[month][key_string]["sum"] += d.value;
 
 
                 });
