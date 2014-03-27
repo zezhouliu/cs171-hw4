@@ -21,9 +21,17 @@ var bbVis = {
     h: 300
 };
 
+var bbDetail = {
+    
+    x: 100,
+    y: 10,
+    w: 450,
+    h: 300
+}
+
 var detailVis = d3.select("#detailVis").append("svg").attr({
-    width:350,
-    height:200
+    width:550,
+    height:400
 })
 
 var canvas = d3.select("#vis").append("svg").attr({
@@ -36,7 +44,7 @@ var svg = canvas.append("g").attr({
 });
 
 var detailSVG = detailVis.append("g").attr({
-    transform: "translate(" + 100 + "," + 100 + ")"
+    transform: "translate(" + 0 + "," + 0 + ")"
 });
 
 var projection = d3.geo.albersUsa().translate([width / 2, height / 2]);//.precision(.1);
@@ -52,6 +60,8 @@ var g = svg.append("g");
 
 //// store the detail axis/scales
 var xAxis, xScale, yAxis, yScale;
+var completeData = {};
+var hourly_aggregate = {};
 
 function clicked(d) {
 
@@ -81,30 +91,37 @@ function clicked(d) {
 
 var dataSet = {};
 
-
-
-function loadStations(completeData) {
+function loadStations(c) {
     d3.csv("../data/NSRDB_StationsMeta.csv",function(error,data){
+
+        console.log(data);
 
         // first, filter the data for the null-projection values
         var filtered_data = data.filter(function (d, i) {
             return projection([parseInt(d["ISH_LON(dd)"]), parseInt(d["ISH_LAT (dd)"])]);
         });
 
+        console.log(completeData);
+
         // we must create scale for the total sums
         var total_sums = {};
 
-        // this gets each station_id
+        // this gets each month
         for (var key in completeData) {
             
-            if (!(key in total_sums)) {
-                total_sums[key] = 0;
-            }
+            // get each station_id
+            for (var station in completeData[key]) {
+                // store station in total_sums
+                if (!(station in total_sums)) {
+                    total_sums[station] = 0;
+                }
 
-            total_sums[key] += completeData[key]["sum"];
+                total_sums[station] += completeData[key][station]["sum"];
+            }
             
         }
 
+        // get max and min sums
         var max_sum = 0;
         var min_sum = 99999999999;
         for (var station_id in total_sums) {
@@ -116,52 +133,75 @@ function loadStations(completeData) {
             }
         }
 
+        // aggregate hourly data by station
+        for (var month in completeData) {
+
+            // grab each station
+            for (var id in completeData[month]) {
+
+                // push station id into hourly aggregate if DNE
+                if (!(id in hourly_aggregate)) {
+                    hourly_aggregate[id] = [];
+                }
+
+                // sum up hourly data
+                for (var hr in completeData[month][id]["hourly"]) {
+
+                    var int_hr = parseInt(hr);
+
+                    if (!hourly_aggregate[id][int_hr]) {
+                        hourly_aggregate[id][int_hr] = 0;
+                    }
+
+                    // include the value
+                    hourly_aggregate[id][hr] += completeData[month][id]["hourly"][hr];
+                }
+            }
+        }
+
         // create scale for radius
         var radius_scale = d3.scale.linear().domain([min_sum, max_sum]).range([2, 3.5]);
 
-        filtered_data.forEach(function (d, i) {
-
+        svg.selectAll("circle")
+        .data(filtered_data)
+        .enter()
+        .append("circle")
+        .attr("class", function (d, i) {
             var station_id = d["USAF"];
-            var station_name = d["STATION"];
+            if (total_sums[station_id]) {
+                return "station hasData";
+            }
+            else {
+                return "station";
+            }
+        })
+        .attr("transform", function (d, i) {
+            return "translate(" + projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]]) + ")";
+        })
+        .attr("r", function (d, i) {
+            var station_id = d["USAF"];
+            if (!total_sums[station_id]) {
+                return radius_scale(0);
+            } else {
+                return radius_scale(total_sums[station_id]);
+            }
+        })
+        .on("mouseover", function (d, i) {
 
-            // grab the total sum
-            var sum = total_sums[station_id];
+            // if it has a data, then display the data, else just display the name
+            if (total_sums[d["USAF"]]) {
+                tooltip.html("<b>" + d["STATION"] + " (" + d["USAF"] + ")</b><br>Value: " + total_sums[d["USAF"]]);
+            }
+            else {
+                tooltip.html("<b>" + d["STATION"] + " (" + d["USAF"] + ")</b>");
+            }
+            return tooltip.style("visibility", "visible");
 
-            var c = svg.append("circle")
-            .attr("class", function (d, i) {
-                if (sum) {
-                    return "station hasData";
-                }
-                else {
-                    return "station";
-                }
-            })
-            .attr("cx", projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]])[0])
-            .attr("cy", projection([d["ISH_LON(dd)"], d["ISH_LAT (dd)"]])[1])
-            .attr("r", function (d, i) {
-                if (!sum) {
-                    return radius_scale(0);
-                } else {
-                    return radius_scale(sum);
-                }
-            })
-            .on("mouseover", function (d, i) {
-
-                // if it has a data, then display the data, else just display the name
-                if (sum) {
-                    tooltip.html("<b>" + station_name + " (" + station_id + ")</b><br>Value: " + sum);
-                }
-                else {
-                    tooltip.html("<b>" + station_name + " (" + station_id + ")</b>");
-                }
-                return tooltip.style("visibility", "visible");
-
-            })
-	        .on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
-	        .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
-            .on("click", function (d1) {
-                updateDetailVis(completeData[station_id], station_name);
-            });
+        })
+        .on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
+        .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
+        .on("click", function (d) {
+            updateDetailVis(d, d["USAF"]);
         });
         
     });
@@ -172,8 +212,9 @@ function loadStations(completeData) {
 
 function loadStats() {
 
-    d3.json("../data/reducedMonthStationHour2003_2004.json", function (error, data) {
-        completeDataSet = data;
+    d3.json("../data/reducedMonthStationHour2003_2004_byMonth.json", function (error, data) {
+        completeData = data;
+        console.log(data);
 		
         loadStations(data);
     })
@@ -211,70 +252,80 @@ var tooltip = d3.select("body")
 // ALL THESE FUNCTIONS are just a RECOMMENDATION !!!!
 var createDetailVis = function () {
 
-    xScale = d3.scale.linear().domain([1, 11]).range([0, 200]);
-    xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(10);
+    xScale = d3.scale.linear().domain([0, 23]).range([bbDetail.x, bbDetail.w]);
+    xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(6);
 
     // define the scale and axis for y
-    yScale = d3.scale.linear().domain([0, 10]).range([0, 350]);
+    yScale = d3.scale.linear().domain([0, 10]).range([bbDetail.y, bbDetail.h]);
     yAxis = d3.svg.axis().scale(yScale).orient("left").ticks(5);
 
     // Add the X Axis for Overview
     detailVis.append("g")
         .attr("class", "x axis")
-        .attr("transform", "translate(0," + 100 + ")")
+        .attr("transform", "translate(0," + bbDetail.h + ")")
+        //.style("visibility", "hidden")
         .call(xAxis);
 
     // Add the Y Axis for the Overview
-    detailVis.selectAll("g")
-        .append("g")
+    detailVis.append("g")
         .attr("class", "y axis")
+        .attr("transform", "translate(" + bbDetail.x + ",0)")
+        //.style("visibility", "hidden")
         .call(yAxis);
 
 }
 
 
-var updateDetailVis = function (data, name) {
+var updateDetailVis = function (data, station_id) {
     
-    // if we have data, update the DetailVis
-    if (data) {
-
-        // calculate min and max years for the scales and axis
-        var min_val = 99999999999;
-        var max_val = 0;
-
-        for (key in data["hourly"]) {
-            if (data["hourly"][key] < min_val) {
-                min_val = data["hourly"][key];
-            }
-            if (data["hourly"][key] > max_val) {
-                max_val = data["hourly"][key];
-            }
-        }
-        console.log(min_val + ", " + max_val);
-
-        //// define the scale and axis for x
-        //xScale = d3.time.scale().domain([1, 11]).range([0, 200]);
-        xScale = d3.scale.linear().domain([1, 11]).range([0, 200]);
-        xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(10);
-
-        // define the scale and axis for y
-        yScale = d3.scale.linear().domain([min_val, max_val]).range([0, 350]);
-        yAxis = d3.svg.axis().scale(yScale).orient("left").ticks(5);
-
-        // Add the X Axis for Overview
-        detailVis.selectAll(".x")
-            .call(xAxis);
-
-        // Add the Y Axis for the Overview
+    if (!hourly_aggregate[station_id]) {
+        // Make invisible Y Axis for the Overview
         detailVis.selectAll(".y")
+            .style("visibility", "hidden")
             .call(yAxis);
     }
     else {
+        console.log(station_id);
 
-        // else, we should just clear the graph
-        console.log("lol");
-        return;
+        // grab the hourly data for our station_id
+        console.log(hourly_aggregate[station_id]);
+
+        var min_val = 99999999999;
+        var max_val = 0;
+
+        for (key in hourly_aggregate[station_id]) {
+            if (hourly_aggregate[station_id][key] < min_val) {
+                min_val = hourly_aggregate[station_id][key];
+            }
+            if (hourly_aggregate[station_id][key] > max_val) {
+                max_val = hourly_aggregate[station_id][key];
+            }
+        }
+
+        console.log("(" + min_val + "," + max_val + ")");
+        yScale.domain([max_val, min_val]);
+
+        // Add the Y Axis for the Overview
+        detailVis.selectAll(".y")
+            .style("visibility", "visible")
+            .call(yAxis);
+
+        var bars = detailVis.selectAll("rect").remove(); 
+
+        bars = detailVis.selectAll("rect")
+            .data(hourly_aggregate[station_id])
+            .enter()
+            .append("rect")
+            .attr("x", function (d, i) {
+                return ((bbDetail.w - bbDetail.x) / 24) * i + bbDetail.x;
+            })
+            .attr("y", function (d) { return yScale(d); })
+            .attr("width", function (d) { return (bbDetail.w - bbDetail.x) / 24; })
+            .attr("height", function (d) { return bbDetail.h - yScale(d); })
+            .attr("stroke", "steelblue")
+            .attr("fill", function (d) { return "black" });
     }
+    
 
     
 
