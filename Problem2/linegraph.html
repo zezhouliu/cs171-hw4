@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <script src="../libs/d3.v3.min.js"></script>
+    <style>
+
+        path {
+            stroke-width: 1;
+            fill: none;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: lightgrey;
+            stroke-width: 1;
+            shape-rendering: crispEdges;
+        }
+
+        .dataArea {
+            stroke: 1px steelblue;
+            fill:steelblue;
+            fill-opacity:0.5;
+            clip-path: url(#clip);
+        }
+
+
+    </style>
+
+</head>
+<body>
+    <div id="vis"></div>
+
+
+	<script src = "linegraph.js"></script>
+
+
+</body>
+</html>

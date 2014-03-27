@@ -1,4 +1,4 @@
-/**
+ /**
  * Created by hen on 3/8/14.
  */
 
@@ -36,7 +36,7 @@ var svg = canvas.append("g").attr({
 });
 
 var detailSVG = detailVis.append("g").attr({
-    transform: "translate(" + 0 + "," + 0 + ")"
+    transform: "translate(" + 100 + "," + 100 + ")"
 });
 
 var projection = d3.geo.albersUsa().translate([width / 2, height / 2]);//.precision(.1);
@@ -47,6 +47,11 @@ svg.append("rect")
     .attr("width", width)
     .attr("height", height)
     .on("click", clicked);
+
+var g = svg.append("g");
+
+//// store the detail axis/scales
+var xAxis, xScale, yAxis, yScale;
 
 function clicked(d) {
 
@@ -86,8 +91,6 @@ function loadStations(completeData) {
             return projection([parseInt(d["ISH_LON(dd)"]), parseInt(d["ISH_LAT (dd)"])]);
         });
 
-        console.log(completeData);
-
         // we must create scale for the total sums
         var total_sums = {};
 
@@ -116,7 +119,7 @@ function loadStations(completeData) {
         // create scale for radius
         var radius_scale = d3.scale.linear().domain([min_sum, max_sum]).range([2, 3.5]);
 
-        filtered_data.forEach (function (d, i) {
+        filtered_data.forEach(function (d, i) {
 
             var station_id = d["USAF"];
             var station_name = d["STATION"];
@@ -156,10 +159,14 @@ function loadStations(completeData) {
             })
 	        .on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
 	        .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
-            .on("click", updateDetailVis(d, station_name));
+            .on("click", function (d1) {
+                updateDetailVis(completeData[station_id], station_name);
+            });
         });
         
     });
+
+    createDetailVis();
 }
 
 
@@ -177,9 +184,8 @@ function loadStats() {
 d3.json("../data/us-named.json", function(error, data) {
 
     var usMap = topojson.feature(data,data.objects.states).features
-    //console.log(usMap);
 
-    svg.selectAll(".country")
+    g.selectAll(".country")
         .data(usMap)
         .enter()
         .append("path")
@@ -205,24 +211,70 @@ var tooltip = d3.select("body")
 // ALL THESE FUNCTIONS are just a RECOMMENDATION !!!!
 var createDetailVis = function () {
 
+    xScale = d3.scale.linear().domain([1, 11]).range([0, 200]);
+    xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(10);
+
+    // define the scale and axis for y
+    yScale = d3.scale.linear().domain([0, 10]).range([0, 350]);
+    yAxis = d3.svg.axis().scale(yScale).orient("left").ticks(5);
+
+    // Add the X Axis for Overview
+    detailVis.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + 100 + ")")
+        .call(xAxis);
+
+    // Add the Y Axis for the Overview
+    detailVis.selectAll("g")
+        .append("g")
+        .attr("class", "y axis")
+        .call(yAxis);
+
 }
 
 
-var updateDetailVis = function(data, name){
-  
-    console.log(data);
-    console.log(name);
+var updateDetailVis = function (data, name) {
+    
+    // if we have data, update the DetailVis
+    if (data) {
 
-    // calculate min and max years for the scales and axis
-    //var min_year = d3.min(data, function (d) { return d.date; });
-    //var max_year = d3.max(data, function (d) { return d.date; });
+        // calculate min and max years for the scales and axis
+        var min_val = 99999999999;
+        var max_val = 0;
 
-    //// store the detail axis/scales
-    //var xAxis, xScale, yAxis, yScale;
+        for (key in data["hourly"]) {
+            if (data["hourly"][key] < min_val) {
+                min_val = data["hourly"][key];
+            }
+            if (data["hourly"][key] > max_val) {
+                max_val = data["hourly"][key];
+            }
+        }
+        console.log(min_val + ", " + max_val);
 
-    //// define the scale and axis for x
-    //xScale = d3.time.scale().domain(d3.extent(data, function (d) { return d.date; })).range([0, bbVis]);
-    //xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(10);
+        //// define the scale and axis for x
+        //xScale = d3.time.scale().domain([1, 11]).range([0, 200]);
+        xScale = d3.scale.linear().domain([1, 11]).range([0, 200]);
+        xAxis = d3.svg.axis().scale(xScale).orient("bottom").ticks(10);
+
+        // define the scale and axis for y
+        yScale = d3.scale.linear().domain([min_val, max_val]).range([0, 350]);
+        yAxis = d3.svg.axis().scale(yScale).orient("left").ticks(5);
+
+        // Add the X Axis for Overview
+        detailVis.selectAll(".x")
+            .call(xAxis);
+
+        // Add the Y Axis for the Overview
+        detailVis.selectAll(".y")
+            .call(yAxis);
+    }
+    else {
+
+        // else, we should just clear the graph
+        console.log("lol");
+        return;
+    }
 
     
 

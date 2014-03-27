@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+
+    <script src="../libs/jquery-1.10.1.js"></script>
+    <script src="../libs/jquery.xdomainajax.js"></script>
+    <script src="../libs/d3.v3.min.js"></script>
+    <script src="../libs/FileSaver.js"></script>
+</head>
+<body>
+
+<script>
+    var convertToInt;
+
+    $.ajax({
+        url: "http://en.wikipedia.org/wiki/World_population_estimates",
+        type: 'GET',
+        cache: false,
+        success: function(data) {
+            var root,allData, body, table;
+            root = $("<div></div>")
+            root.html(data.responseText)
+
+            var content = root.find(".wikitable"); // find all the nodes that have class "wikitable"
+            var trs = content.find("tr").not('tr:first'); // search in all "content" nodes for nodes of type tr
+            var th = content.find("tr").eq(0);
+
+            console.log(th);
+
+            $.each(trs, function (index, value) {
+                // remove all the columns past Maddison
+                $(this).find("td:gt(5)").remove();
+                    
+            });
+
+            $.each(th, function (index, value) {
+                // remove all the columns past Maddison
+                $(this).find("th:gt(5)").remove();
+
+            });
+
+            var filtered = trs.filter(function () {
+                // only keep the rows that are not all empty
+                // and the year is greater than 0 and less than 2050
+                var year = $(this).find("td:first p").html();
+                return $(this).find('td:empty').length < 5 && year >= 0 && year <= 2050;
+            });
+
+            var output = new Array();
+
+            // push headers manually
+            output.push("year,USCensus,PopulationBureau,UN,HYDE,Maddison");
+
+            $.each(filtered, function (index, value) {
+
+                var row = "";
+
+                $.each($(this).find("td"), function (i, v) {
+                    //console.log(i);
+                    if (i == 0) {
+                        var year = $(this).find("p").html();
+                        //console.log("Year: " + year);
+                        row = row + year;
+                        //console.log(">>>>>>" + row);
+                    }
+                    else {
+                        var num = convertToInt($(this).text());
+                        if (num) {
+                            //console.log("Num: " + num);
+                            row = row + "," + parseInt(num);
+                            //console.log(">>>>>>" + row);
+                        }
+                        else {
+                            row = row + ",";
+                        }
+                    }
+
+
+                });
+
+                output.push(row);
+            });
+			
+            saveToFile(output, "timeline.csv");
+        },
+        error: function() {
+            return console.log("error");
+        }
+    });
+
+    convertToInt = function(s) {
+        return parseInt(s.replace(/,/g, ""), 10);
+    };
+	
+    /* takes an array of strings
+       and writes them line by line into a file given by filename
+     */
+    var saveToFile = function(arrayOfLines, fileName) {
+       /* adds linebreaks at the end*/
+       var blob, blobText;
+       blobText = arrayOfLines.map(function(d) {
+         if (d.endsWith("\n")) {
+           return d;
+         } else {
+           return d + "\n";
+         }
+       });
+       blob = new Blob(blobText, {
+         type: "text/plain;charset=utf-8"
+       });
+       return saveAs(blob, fileName);
+     };
+
+     String.prototype.endsWith = function(suffix) {
+       return this.indexOf(suffix, this.length - suffix.length) !== -1;
+     };
+	
+
+
+
+</script>
+
+
+</body>
+</html>
