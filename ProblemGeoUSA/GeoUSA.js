@@ -94,8 +94,6 @@ var dataSet = {};
 function loadStations(c) {
     d3.csv("../data/NSRDB_StationsMeta.csv",function(error,data){
 
-        console.log(data);
-
         // first, filter the data for the null-projection values
         var filtered_data = data.filter(function (d, i) {
             return projection([parseInt(d["ISH_LON(dd)"]), parseInt(d["ISH_LAT (dd)"])]);
@@ -214,7 +212,6 @@ function loadStats() {
 
     d3.json("../data/reducedMonthStationHour2003_2004_byMonth.json", function (error, data) {
         completeData = data;
-        console.log(data);
 		
         loadStations(data);
     })

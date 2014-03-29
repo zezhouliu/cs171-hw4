@@ -15,33 +15,90 @@
 
 
 <style type="text/css">
-    svg{
+    svg {
         background: #eeeeee;
     }
 
-    .country{
-        fill: none;
+    .country {
         stroke:  steelblue;
     }
-    text{
+
+    text {
         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
         font-size: 9pt;
         font-weight: bold;
     }
 
-    table{
+    table {
         border:none;
     }
 
+    <!-- Timeline CSS -->
+    #timeline rect {
+        fill: white;
+        stroke: none;
+        stroke-width: 0;
+        opacity: 0.8;
+    }
+
+    #timeline path {
+        stroke: steelBlue;
+        fill: steelBlue;
+        stroke-width: 2px;
+    }
+
+    #timeline .year-marker {
+        stroke: white;
+        stroke-width: 1px;
+        fill: steelBlue;
+    }
+
+    #timeline .year-tick {
+        stroke: none;
+        stroke-width: 0;
+        fill: white;
+    }
+
+    #timeline .year-tick-label {
+        fill: steelBlue;
+        font-size: 1em;
+        cursor: pointer;
+    }
+
+    #timeline rect {
+        fill: none;
+    }
+
+    <!-- year stuff --> 
+    .year-label {
+        font-size: 1.5em;
+        stroke: none;
+        fill: #444;
+    }
+
+    .year-nav {
+        fill: steelBlue;
+    }
+
+
+    <!-- tooltip stuff -->
+    #tooltip {
+        position: absolute;
+        text-align: left;
+        font: 12px sans-serif;
+        pointer-events: none;
+    }
 
 </style>
 
-
-<table>
-    <tr>
-        <td><div id="vis"></div></td><td><div id="textLabel"></div></td>
-    </tr>
-</table>
+    <center>
+        <table>
+            <tr>
+                <td><div id="vis"></div></td>
+                <td><div id="textLabel"></div></td>
+            </tr>
+        </table>
+    </center>
 <div id="selector"></div><div id="selectorYear"></div>
 
 
