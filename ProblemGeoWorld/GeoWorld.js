@@ -36,7 +36,9 @@ var tline = d3.svg.line()
 var timeline;
 var selected_year = 1985;
 var selected_country;
+var selected_indicator;
 var centered;
+var current_data;
 
 var timeRange = [];
 
@@ -92,14 +94,24 @@ var tooltip = d3.select("body")
     .style("border-radius", "8px")
 	.style("visibility", "hidden");
 
-function runAQueryOn(indicatorString) {
+function runAQueryOn(indicatorString, year) {
     $.ajax({
-        url: "http://api.worldbank.org/countries/all?format=jsonP&prefix=Getdata&per_page=500&date=2000", //do something here
-        jsonpCallback:'getdata',
+        url: "http://api.worldbank.org/countries/all/indicators/" + indicatorString + "?format=jsonP&prefix=Getdata&per_page=500&date=" + year, //do something here
+        async: false,
+        jsonpCallback: 'getdata',
         dataType:'jsonp',
-        success: function (data, status){
-           
+        success: function (data, status) {
 
+            // check status, then update data if status == success 200
+            if (status == "success") {
+                console.log(data);
+                console.log(data[1]);
+                current_data = data;
+
+                // update the map here
+                colorcodemap();
+            }
+            
         }
 
     });
@@ -157,7 +169,13 @@ function navigateNext() {
 }
 
 function timeclick(d) {
-    transitionToYear(selected_year = d);
+
+    selected_year = d;
+
+    // Make AJAX request here when a new time is selected
+    runAQueryOn(selected_indicator.IndicatorCode, selected_year);
+
+    transitionToYear(selected_year);
     return false;
 }
 
@@ -322,13 +340,19 @@ var loaddropdown = function (data) {
     d3.select("#indicator").html(options)
       .on("change", function () {
           var sel = this.value;
-          var obj = data.filter(function (d) { return d.IndicatorCode == sel })[0];
-          console.log(obj);
+          selected_indicator = data.filter(function (d) { return d.IndicatorCode == sel })[0];
 
           // Make AJAX request here when selected
-          
+          runAQueryOn(selected_indicator.IndicatorCode, selected_year);
       });
+
+    selected_indicator = data[0];
 }
+
+var colorcodemap = function () {
+
+}
+
 // very cool queue function to make multiple calls.. 
 // see 
 queue()
