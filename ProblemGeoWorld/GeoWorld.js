@@ -140,6 +140,7 @@ var initVis = function(error, indicators, world, wbc){
         .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
 
     loadtimeline();
+    loaddropdown(indicators);
 
 }
 
@@ -310,6 +311,24 @@ function transitionToYear(y) {
     */
 }
 
+var loaddropdown = function (data) {
+
+    // dropdown for selecting indicator
+    var options = '';
+    data.forEach(function (d) {
+        options += '<option value="' + d.IndicatorCode + '">' + d.IndicatorName + '</option>';
+    });
+
+    d3.select("#indicator").html(options)
+      .on("change", function () {
+          var sel = this.value;
+          var obj = data.filter(function (d) { return d.IndicatorCode == sel })[0];
+          console.log(obj);
+
+          // Make AJAX request here when selected
+          
+      });
+}
 // very cool queue function to make multiple calls.. 
 // see 
 queue()
