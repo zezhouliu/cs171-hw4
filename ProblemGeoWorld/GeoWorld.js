@@ -34,11 +34,12 @@ var tline = d3.svg.line()
 
 // create variables
 var timeline;
-var selected_year = 1985;
+var selected_year = 1985; // default
 var selected_country;
 var selected_indicator;
 var centered;
 var current_data;
+var country_hash = {};
 
 var timeRange = [];
 
@@ -75,8 +76,8 @@ var projectionMethods = [
 
 // color scale
 var color = d3.scale.linear()
-  .domain([-8, 0, 8])
-  .range(["#de1f2e", "#e4e4e4", "#0ca454"]);
+  .domain([0, 8])
+  .range(["#DB7093", "#45232e"]);
 
 var actualProjectionMethod = 0;
 var colorMin = colorbrewer.Greens[3][0];
@@ -89,14 +90,15 @@ var tooltip = d3.select("body")
     .attr("id", "tooltip")
 	.style("position", "absolute")
 	.style("z-index", "10")
-    .style("background", "steelblue")
+    .style("background", "white")
     .style("padding", "5px")
     .style("border-radius", "8px")
 	.style("visibility", "hidden");
 
-function runAQueryOn(indicatorString, year) {
+// make request per indicator string, and we can parse out ourselves for the years
+function runAQueryOn(indicatorString) {
     $.ajax({
-        url: "http://api.worldbank.org/countries/all/indicators/" + indicatorString + "?format=jsonP&prefix=Getdata&per_page=500&date=" + year, //do something here
+        url: "http://api.worldbank.org/countries/all/indicators/" + indicatorString + "?format=jsonP&prefix=Getdata&per_page=500", //do something here
         async: false,
         jsonpCallback: 'getdata',
         dataType:'jsonp',
@@ -104,12 +106,12 @@ function runAQueryOn(indicatorString, year) {
 
             // check status, then update data if status == success 200
             if (status == "success") {
-                console.log(data);
-                console.log(data[1]);
-                current_data = data;
+                current_data = data[1].filter(function (d, i) {
+                    return d.value
+                });
 
-                // update the map here
-                colorcodemap();
+                // update the available dates here
+                loadavailabledates();
             }
             
         }
@@ -128,9 +130,12 @@ function clear() {
 }
 
 var initVis = function(error, indicators, world, wbc){
-    console.log(indicators);
-    console.log(world);
-    console.log(wbc);
+
+    // create a hash from code3 -> code2
+    for (var key in wbc) {
+        country_hash[wbc[key].code3] = wbc[key].code2;
+    }
+
 
     var countries = world.features;
 
@@ -142,8 +147,9 @@ var initVis = function(error, indicators, world, wbc){
         .attr("id", function (d, i) { return d.id; })
         .attr("title", function (d, i) { return d.id; })
         .attr("d", path)
-        .attr("fill", "lightsteelblue")
+        .attr("fill", "lightgray")
         .on("mouseover", function (d, i) {
+
             tooltip.html("<b>" + d.id + "</b>");
             return tooltip.style("visibility", "visible");
 
@@ -151,8 +157,15 @@ var initVis = function(error, indicators, world, wbc){
         .on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
         .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
 
+
+    /* TEACHING STAFF:  Play with this, I think it's pretty cool!  I didn't manage to figure out
+    how to rescale this timeline after I get a new set of data, but definitely on my to-do :) 
     loadtimeline();
+    */
+
+    // load stuff
     loaddropdown(indicators);
+    makeRequest();
 
 }
 
@@ -172,9 +185,8 @@ function timeclick(d) {
 
     selected_year = d;
 
-    // Make AJAX request here when a new time is selected
-    runAQueryOn(selected_indicator.IndicatorCode, selected_year);
-
+    // Update the data when the year is selected
+    // XXX No longer make another request
     transitionToYear(selected_year);
     return false;
 }
@@ -284,27 +296,12 @@ var loadtimeline = function () {
 }
 
 function transitionToYear(y) {
-    // delay the map transition to set a starting value for undefined
-    // fills. otherwise the pattern is replaced by black first
-    // webkit flickers when transitioning from pattern to pattern
 
     function colorCheck() {
         if (d3.select(this).attr('fill') == 'url(#undefined)') {
             d3.select(this).attr('fill', '#e4e4e4');
         }
     }
-
-    /* Updates go here
-    svg.selectAll('.gdp')
-        .transition().delay(1).duration(1000)
-        .each("start", colorCheck)
-        .attr('fill', function (d) { return growthColor(d, y); });
-    svg.selectAll('.gdp')
-        .select('title')
-        .text(function (d) { return growthLabel(d, y); });
-    
-    */
-
     timeline.select('.selected')
         .classed('selected', false)
         .select('.year-marker')
@@ -322,11 +319,6 @@ function transitionToYear(y) {
         .duration(600)
         .text(String(selected_year));
 
-    /* Update the info here 
-    updateGlobalInfo(y);
-    updateCountryInfo(selected_country, y);
-
-    */
 }
 
 var loaddropdown = function (data) {
@@ -342,14 +334,99 @@ var loaddropdown = function (data) {
           var sel = this.value;
           selected_indicator = data.filter(function (d) { return d.IndicatorCode == sel })[0];
 
-          // Make AJAX request here when selected
-          runAQueryOn(selected_indicator.IndicatorCode, selected_year);
+          // Make AJAX request here when selected to get valid ddate
+          runAQueryOn(selected_indicator.IndicatorCode);
       });
 
     selected_indicator = data[0];
+    runAQueryOn(selected_indicator.IndicatorCode);
+}
+
+var loadyeardropdown = function () {
+
+    // dropdown for selecting indicator
+    var options = '';
+    timeRange.forEach(function (d) {
+        options += '<option value="' + d + '">' + d + '</option>';
+    });
+
+    d3.select("#year").html(options)
+      .on("change", function () {
+          var sel = this.value;
+          selected_year = sel;
+      });
+
+    selected_year = timeRange[0];
+    makeRequest();
+}
+
+var loadavailabledates = function () {
+
+    // time range
+    var range = d3.extent(current_data, function (d, i) {
+        return (d.date);
+    });
+
+    timeRange = [];
+
+    // create a valid time-range with range
+    for (var i = range[0]; i <= range[1]; ++i) {
+        timeRange.push(i);
+    }
+
+    loadyeardropdown();
 }
 
 var colorcodemap = function () {
+
+    // time range
+    var range = d3.extent(current_data, function (d, i) {
+        return (d.date);
+    });
+    
+    // if there is no range, or if our selected year is not in the range, then just blank out the map
+    if (!range[0] || range[0] > selected_year || range[1] < selected_year) {
+        svg.selectAll(".country")
+        .attr("fill", function (d, i) {
+            return "lightgray";
+        });
+    }
+
+    // if it exists in the range, we should filter out the specific data we need
+    var yearly_data = current_data.filter(function (d, i) {
+        return (d.date == selected_year);
+    });
+
+    // update the scale to map values to data
+    color.domain(d3.extent(yearly_data, function (d, i) {
+        if (d.value) {
+            return parseFloat(d.value);
+        }
+    }));
+
+    var data_range = d3.extent(yearly_data, function (d, i) {
+        if (d.value) {
+            return d.value;
+        }
+    });
+
+    // update the colors
+    svg.selectAll(".country")
+        .attr("fill", function (d, i) {
+
+            // convert from code3 -> code 2
+            var code2 = country_hash[d.id];
+
+            // d.id is the id name
+            for (d1 in yearly_data) {
+
+                if (code2 == yearly_data[d1].country.id) {
+                    return color(yearly_data[d1].value);
+                }
+            }
+
+            return "lightgray";
+        });
 
 }
 
@@ -377,7 +454,37 @@ var changePro = function(){
     //svg.selectAll(".country").transition().duration(750).attr("d",path);
 };
 
-d3.select("body").append("button").text("changePro").on({
-    "click":changePro
-})
 
+var makeRequest = function () {
+
+    $.ajax({
+        url: "http://api.worldbank.org/countries/all/indicators/" + selected_indicator.IndicatorCode + "?format=jsonP&prefix=Getdata&per_page=500&date=" + selected_year, //do something here
+        async: false,
+        jsonpCallback: 'getdata',
+        dataType: 'jsonp',
+        success: function (data, status) {
+
+            // check status, then update data if status == success 200
+            if (status == "success") {
+
+                // only use data values that exist
+                current_data = data[1].filter(function (d, i) {
+                    return d.value
+                });
+
+                // update the map here
+                colorcodemap();
+            }
+
+        }
+
+    });
+};
+
+d3.select("body").append("button").text("changePro").on({
+    "click": changePro
+});
+
+d3.select("#goButton").on({
+    "click": makeRequest
+});
