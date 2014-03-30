@@ -40,6 +40,8 @@ var selected_indicator;
 var centered;
 var current_data;
 var country_hash = {};
+var yearly_data;
+var total_data;
 
 var timeRange = [];
 
@@ -129,6 +131,24 @@ function clear() {
     d3.select("#info").html("");
 }
 
+var showDetails = function (d) {
+    // work with the d.id
+    for (var i in yearly_data) {
+        if (country_hash[d.id] == yearly_data[i].country.id) {
+            d3.select("#textLabel")
+            .html("<h3>" + yearly_data[i].country.value + "</h3><br><b>" + selected_indicator.IndicatorName + "(" + selected_indicator.IndicatorCode + ")" + "</b><br>" + yearly_data[i].value);
+            return;
+        }
+    }
+
+    // if there is no data
+            d3.select("#textLabel")
+            .html("<h3>" + selected_indicator.IndicatorCode + "</h3><br><b>" + selected_indicator.IndicatorName + "(" + selected_indicator.IndicatorCode + ")" + "</b><br> NO DATA AVAILABLE");
+            return;
+
+    
+};
+
 var initVis = function(error, indicators, world, wbc){
 
     // create a hash from code3 -> code2
@@ -156,6 +176,7 @@ var initVis = function(error, indicators, world, wbc){
         })
         .on("mousemove", function (d) { return tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px"); })
         .on("mouseout", function (d) { return tooltip.style("visibility", "hidden"); })
+        .on("click", function (d) { showDetails(d); });
 
 
     /* TEACHING STAFF:  Play with this, I think it's pretty cool!  I didn't manage to figure out
@@ -393,7 +414,7 @@ var colorcodemap = function () {
     }
 
     // if it exists in the range, we should filter out the specific data we need
-    var yearly_data = current_data.filter(function (d, i) {
+    yearly_data = current_data.filter(function (d, i) {
         return (d.date == selected_year);
     });
 
@@ -467,6 +488,7 @@ var makeRequest = function () {
             // check status, then update data if status == success 200
             if (status == "success") {
 
+                total_data = data;
                 // only use data values that exist
                 current_data = data[1].filter(function (d, i) {
                     return d.value
